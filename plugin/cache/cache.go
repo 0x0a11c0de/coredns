@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/cache"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/response"
@@ -37,6 +38,8 @@ type Cache struct {
 	percentage int
 
 	staleUpTo time.Duration
+
+	metaPlugin *metadata.Metadata
 
 	// Testing.
 	now func() time.Time

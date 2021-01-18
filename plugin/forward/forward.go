@@ -14,6 +14,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/debug"
 	"github.com/coredns/coredns/plugin/dnstap"
+	"github.com/coredns/coredns/plugin/metadata"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
@@ -47,7 +48,8 @@ type Forward struct {
 	// the maximum allowed (maxConcurrent)
 	ErrLimitExceeded error
 
-	tapPlugin *dnstap.Dnstap // when the dnstap plugin is loaded, we use to this to send messages out.
+	tapPlugin  *dnstap.Dnstap // when the dnstap plugin is loaded, we use to this to send messages out.
+	metaPlugin *metadata.Metadata
 
 	Next plugin.Handler
 }
@@ -148,6 +150,24 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			toDnstap(f, proxy.addr, state, opts, ret, start)
 		}
 
+		if f.metaPlugin != nil {
+			var proto string
+			if proxy.transport.tlsConfig != nil {
+				proto = "tcp-tls"
+			} else {
+				switch {
+				case opts.forceTCP: // TCP flag has precedence over UDP flag
+					proto = "tcp"
+				case opts.preferUDP:
+					proto = "udp"
+				default:
+					proto = state.Proto()
+				}
+			}
+			metadata.SetValueFunc(ctx, "forward/proto", func() string { return proto })
+			metadata.SetValueFunc(ctx, "forward/address", func() string { return proxy.addr })
+		}
+
 		upstreamErr = err
 
 		if err != nil {
@@ -168,11 +188,11 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 			formerr := new(dns.Msg)
 			formerr.SetRcode(state.Req, dns.RcodeFormatError)
-			w.WriteMsg(formerr)
+			_ = w.WriteMsg(formerr)
 			return 0, nil
 		}
 
-		w.WriteMsg(ret)
+		_ = w.WriteMsg(ret)
 		return 0, nil
 	}
 

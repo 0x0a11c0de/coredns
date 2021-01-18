@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"github.com/coredns/coredns/plugin/metadata"
 	"math"
 	"time"
 
@@ -40,7 +41,13 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	}
 	if i == nil {
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
+		if c.metaPlugin != nil {
+			metadata.SetValueFunc(ctx, "cache/from_cache", func() string { return "false" })
+		}
 		return c.doRefresh(ctx, state, crr)
+	}
+	if c.metaPlugin != nil {
+		metadata.SetValueFunc(ctx, "cache/from_cache", func() string { return "true" })
 	}
 	if ttl < 0 {
 		servedStale.WithLabelValues(server).Inc()
