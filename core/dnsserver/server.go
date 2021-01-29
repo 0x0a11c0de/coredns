@@ -36,12 +36,13 @@ type Server struct {
 	server [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
 	m      sync.Mutex     // protects the servers
 
-	zones        map[string]*Config // zones keyed by their address
-	dnsWg        sync.WaitGroup     // used to wait on outstanding connections
-	graceTimeout time.Duration      // the maximum duration of a graceful shutdown
-	trace        trace.Trace        // the trace plugin for the server
-	debug        bool               // disable recover()
-	classChaos   bool               // allow non-INET class queries
+	zones           map[string]*Config // zones keyed by their address
+	dnsWg           sync.WaitGroup     // used to wait on outstanding connections
+	graceTimeout    time.Duration      // the maximum duration of a graceful shutdown
+	trace           trace.Trace        // the trace plugin for the server
+	debug           bool               // disable recover()
+	classChaos      bool               // allow non-INET class queries
+	udpReadBufBytes int				   // the size of the read buffer for UDP servers
 }
 
 // NewServer returns a new CoreDNS server and compiles all plugins in to it. By default CH class
@@ -67,6 +68,10 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 			s.debug = true
 			log.D.Set()
 		}
+		if site.UdpReadBufferBytes > s.udpReadBufBytes {
+			s.udpReadBufBytes = site.UdpReadBufferBytes
+		}
+
 		// set the config per zone
 		s.zones[site.Zone] = site
 
@@ -148,7 +153,7 @@ func (s *Server) WrapListener(ln net.Listener) net.Listener {
 
 // ListenPacket implements caddy.UDPServer interface.
 func (s *Server) ListenPacket() (net.PacketConn, error) {
-	p, err := reuseport.ListenPacket("udp", s.Addr[len(transport.DNS+"://"):])
+	p, err := reuseport.ListenPacket("udp", s.Addr[len(transport.DNS+"://"):], s.udpReadBufBytes)
 	if err != nil {
 		return nil, err
 	}
