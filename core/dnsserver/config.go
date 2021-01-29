@@ -48,6 +48,9 @@ type Config struct {
 	// Plugin stack.
 	Plugin []plugin.Plugin
 
+	// The size of the UDP socket's read buffer
+	UdpReadBufferBytes int
+
 	// Compiled plugin stack.
 	pluginChain plugin.Handler
 
